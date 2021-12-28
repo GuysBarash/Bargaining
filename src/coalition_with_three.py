@@ -42,19 +42,26 @@ class MetaCoalition:
 
         self.coalition_vectors = [0] * self.number_of_players
         for p in key_int_l:
-            self.coalition_vectors[p] = 1
+            self.coalition_vectors[p - 1] = 1
 
-        self.possible_leaders_vector = [0] * self.number_of_players
-        self.possible_leaders = list()
+        self.possible_adversaries_vector = [0] * self.number_of_players
+        self.possible_adversaries = list()
         for i in range(len(self.coalition_vectors)):
             if self.coalition_vectors[i] == 0:
-                self.possible_leaders += [i]
-                self.possible_leaders_vector[i] = 1
+                self.possible_adversaries += [i]
+                self.possible_adversaries_vector[i] = 1
 
         self.value = value
 
     def __str__(self):
         return self.sig
+
+    def __contains__(self, key):
+        return key in self.coalition_members
+
+    def check_overlap(self, mc):
+        overlaps = list(set(self.coalition_members) & set(mc.coalition_members))
+        return len(overlaps) > 0
 
 
 class Coalition:
@@ -65,37 +72,43 @@ class Coalition:
             return list()
 
         optimals = list()
-        leaders = list(set([c.previous_lead for c in coalitions]))
-        for leader_p in leaders:
-            coalitions_with_leader = [c for c in coalitions if c.previous_lead == leader_p]
-            optimal_coalition = max(coalitions_with_leader, key=lambda c: c.payoff[leader_p])
-
-            # Option A: Return single optimal
-            # optimals_p = [optimal_coalition]
+        adversaries = list(set([c.last_adv for c in coalitions]))
+        for adv_p in adversaries:
+            coalitions_with_leader = [c for c in coalitions if c.last_adv == adv_p]
+            optimal_coalition = max(coalitions_with_leader, key=lambda c: c.get_last_adv_value())
 
             # Option B: split in case of equilibrium
-            optimal_value = optimal_coalition.payoff[leader_p]
-            optimals_p = [c for c in coalitions if c.payoff[leader_p] == optimal_value]
+            optimal_value = optimal_coalition.get_last_adv_value()
+            optimals_p = [c for c in coalitions_with_leader if c.get_last_adv_value() == optimal_value]
 
             optimals += optimals_p
 
         return optimals
 
-    def __init__(self, payoff, coalitions_value, bargain_step=50, players_count=3, previous_lead=None):
-        self.previous_lead = previous_lead
-        self.players_count = players_count
-        self.coalitions_value = coalitions_value
-        self.bargain_step = bargain_step
-        self.payoff = np.array(payoff)
-        self.leaders = np.where(self.payoff == 0)[0]
-        self.players = [int(t > 0) for t in self.payoff]
+    def __init__(self, payoffs, subcoalitions, last_adv, info):
+        self.info = info
+        self.last_adv = last_adv
+        self.all_metacoalitions = info.get('metacoalitions', dict())
+        self.subcoalitions = subcoalitions
+        self.players_count = info.get('players_count', 50)
+        self.bargain_step = info.get('bargain_step', 50)
+        self.payoff = np.array(payoffs)
+        self.players_vector = [int(t > 0) for t in self.payoff]
+        self.players = [p + 1 for p in range(len(self.players_vector)) if self.players_vector[p] > 0]
+        self.adversaries_vector = [int(t == 0) for t in self.payoff]
+        self.adversaries = [p + 1 for p in range(len(self.adversaries_vector)) if self.adversaries_vector[p] > 0]
         self.next = list()
+        self.sig = None
         self.sig = self._sig()
 
+    def get_last_adv_value(self):
+        return self.payoff[self.last_adv - 1]
+
     def _sig(self):
-        c_sig = '_'.join([str(t) for t in self.payoff])
-        c_sig = f'[{self.previous_lead + 1}]{c_sig}'
-        return c_sig
+        if self.sig is None:
+            self.sig = '_'.join([str(po) for po in self.payoff])
+            self.sig = f'({self.last_adv})' + self.sig
+        return self.sig
 
     def __str__(self):
         return self.sig
@@ -104,24 +117,28 @@ class Coalition:
         self.next = list()
         returns = list()
 
-        for leader_p in self.leaders:
-            known_coalitions_with_leader = [str_to_coalition_keys(s) for s in coalitions_value.keys()]
-            known_coalitions_with_leader = [c for c in known_coalitions_with_leader if leader_p in c]
-            for coalition_c in known_coalitions_with_leader:
-                coalition_c_sig = coalition_keys_to_str(coalition_c)
-                coalition_c_value = coalitions_value.get(coalition_c_sig, default_coalition_value)
+        for adv_p in self.adversaries:
+            known_metacoalitions_with_leader = [k for k, mc in self.all_metacoalitions.items() if
+                                                adv_p in mc]
+            for mc_key in known_metacoalitions_with_leader:
+                mc = self.all_metacoalitions[mc_key]
+                mc_value = mc.value
                 payoffs_c = [0] * self.players_count
 
                 # Set value of all non-leaders to the bargaining step
-                for player_j in coalition_c:
-                    if player_j != leader_p:
-                        payoffs_c[player_j] = self.payoff[player_j] + bargain_step
+                for player_j in mc.coalition_members:
+                    if player_j != adv_p:
+                        payoffs_c[player_j - 1] = self.payoff[player_j - 1] + bargain_step
 
-                leader_value = coalition_c_value - sum(payoffs_c)
-                payoffs_c[leader_p] = leader_value
-                if leader_value > 0:
-                    n_coalition = Coalition(payoffs_c, self.coalitions_value, self.bargain_step, self.players_count,
-                                            previous_lead=leader_p)
+                adv_value = mc_value - sum(payoffs_c)
+                payoffs_c[adv_p - 1] = adv_value
+                if adv_value > 0:
+                    current_mcs = self.subcoalitions
+                    remain_mcs = [mc_t for mc_t in current_mcs if not mc.check_overlap(mc_t)]
+                    for r_mc in remain_mcs:
+                        for old_player in r_mc.coalition_members:
+                            payoffs_c[old_player - 1] = self.payoff[old_player - 1]
+                    n_coalition = Coalition(payoffs_c, [mc] + remain_mcs, last_adv=adv_p, info=self.info)
                     self.next.append(n_coalition.sig)
                     returns.append(n_coalition)
                 else:
@@ -137,26 +154,26 @@ class Coalition:
         return r
 
 
-def get_all_root(bargain_step, coalitions_value, players_count=3, default_coalition_value=0):
+def get_all_root(bargain_step, metacoalitions, info):
     roots = list()
-    players = list(range(players_count))  # Note, the key of player N, is N+1
+    players = list(range(1, players_count + 1))  # Note, the key of player N, is N+1
     for leader_p in players:
-        known_coalitions_with_leader = [str_to_coalition_keys(s) for s in coalitions_value.keys()]
-        known_coalitions_with_leader = [c for c in known_coalitions_with_leader if leader_p in c]
+        known_coalitions_with_leader = [c for c in metacoalitions.values() if leader_p in c.coalition_members]
         for coalition_c in known_coalitions_with_leader:
-            coalition_c_sig = coalition_keys_to_str(coalition_c)
-            coalition_c_value = coalitions_value.get(coalition_c_sig, default_coalition_value)
+            coalition_c_sig = coalition_c.sig
+            coalition_c_value = coalition_c.value
             root = [0] * players_count
 
             # Set value of all non-leaders to the bargaining step
-            for player_j in range(players_count):
-                if (player_j in coalition_c) and (player_j != leader_p):
-                    root[player_j] = bargain_step
+            for player_j in coalition_c.coalition_members:
+                if player_j != leader_p:
+                    root[player_j - 1] = bargain_step
 
             leader_value = coalition_c_value - sum(root)
-            root[leader_p] = leader_value
+            root[leader_p - 1] = leader_value
             if leader_value > 0:
-                roots.append((leader_p, root))
+                coalition = Coalition(root, [coalition_c], leader_p, info=info)
+                roots.append(coalition)
     return roots
 
 
@@ -178,6 +195,12 @@ if __name__ == '__main__':
     metacoalitions = [MetaCoalition(k, v, number_of_players=players_count) for k, v in coalitions_value.items()]
     metacoalitions = {mc.sig: mc for mc in metacoalitions}
 
+    info = dict()
+    info['metacoalitions'] = metacoalitions
+    info['players_count'] = players_count
+    info['bargain_step'] = bargain_step
+    info['default_coalition_value'] = default_coalition_value
+
     # roots = [
     #     [800, 0, 200],
     #     # [950, 0, 50],
@@ -187,8 +210,10 @@ if __name__ == '__main__':
     #     # [50, 0, 50],
     #     # [50, 50, 0],
     # ]
-    roots = get_all_root(bargain_step, coalitions_value, players_count=players_count,
-                         default_coalition_value=default_coalition_value)
+    roots = get_all_root(
+        bargain_step, metacoalitions,
+        info=info,
+    )
     print(f"Roots detected: {len(roots)}")
 
     # BFS
@@ -196,9 +221,7 @@ if __name__ == '__main__':
     q = []
     visited = dict()
 
-    for previous_lead, c_root in roots:
-        root = Coalition(c_root, coalitions_value, bargain_step, players_count=players_count,
-                         previous_lead=previous_lead)
+    for root in roots:
         g[root.sig] = root
         q.append(root.sig)
 

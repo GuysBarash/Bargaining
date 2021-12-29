@@ -201,15 +201,6 @@ if __name__ == '__main__':
     info['bargain_step'] = bargain_step
     info['default_coalition_value'] = default_coalition_value
 
-    # roots = [
-    #     [800, 0, 200],
-    #     # [950, 0, 50],
-    #     # [0, 450, 50],
-    #     # [0, 50, 450],
-    #     # [0, 50, 50],
-    #     # [50, 0, 50],
-    #     # [50, 50, 0],
-    # ]
     roots = get_all_root(
         bargain_step, metacoalitions,
         info=info,

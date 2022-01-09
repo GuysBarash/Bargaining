@@ -393,7 +393,7 @@ class Coalition:
                 # Set value of all non-leaders to the bargaining step
                 for player_j in mc.coalition_members:
                     if player_j != adv_p:
-                        payoffs_c[player_j - 1] = self.payoff[player_j - 1] + bargain_step
+                        payoffs_c[player_j - 1] = self.payoff[player_j - 1] + self.bargain_step
 
                 adv_value = mc_value - sum(payoffs_c)
                 payoffs_c[adv_p - 1] = adv_value

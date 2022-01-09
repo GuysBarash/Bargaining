@@ -74,7 +74,7 @@ class BargainGame:
 
     def compile(self):
         metacoalitions = [MetaCoalition(k, v, number_of_players=self.players_count) for k, v in
-                          coalitions_value.items()]
+                          self.coalitions_value.items()]
 
         self.metacoalitions = {mc.sig: mc for mc in metacoalitions}
         self.calculate_roots()
@@ -457,6 +457,3 @@ if __name__ == '__main__':
     game.plot_bargaining_graph_non_transient()
 
     histdf = game.random_walk_graph()
-
-
-

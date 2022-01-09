@@ -253,7 +253,7 @@ class BargainGame:
     def random_walk_graph(self, normalize=False):
         assert self.compiled, Exception("Cannot random walk a graph before model is compiled.")
 
-        histdf = pd.DataFrame(index=self.negotiation_graph_nontransient.nodes,
+        histdf = pd.DataFrame(index=self.negotiation_graph.nodes,
                               columns=range(1, len(self.components) + 1), data=0)
         for comp_idx, comp in enumerate(self.components):
             s_node = np.random.choice(comp)
@@ -261,7 +261,7 @@ class BargainGame:
             hist_comp[s_node] = 1
             itrs = 10000
             for i in tqdm(range(itrs), desc=f'Random walk on component {comp_idx + 1}/{len(self.components)}'):
-                options_edges = list(self.negotiation_graph_nontransient.out_edges(s_node))
+                options_edges = list(self.negotiation_graph.out_edges(s_node))
                 if len(options_edges) == 0:
                     time.sleep(0.1)
                     print(f"Component {comp_idx + 1} was broken")

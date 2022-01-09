@@ -255,12 +255,12 @@ class BargainGame:
 
         histdf = pd.DataFrame(index=self.negotiation_graph_nontransient.nodes,
                               columns=range(1, len(self.components) + 1), data=0)
-        for comp_idx, comp in enumerate(components):
+        for comp_idx, comp in enumerate(self.components):
             s_node = np.random.choice(comp)
             hist_comp = dict()
             hist_comp[s_node] = 1
             itrs = 10000
-            for i in tqdm(range(itrs), desc=f'Random walk on component {comp_idx + 1}/{len(components)}'):
+            for i in tqdm(range(itrs), desc=f'Random walk on component {comp_idx + 1}/{len(self.components)}'):
                 options_edges = list(self.negotiation_graph_nontransient.out_edges(s_node))
                 if len(options_edges) == 0:
                     time.sleep(0.1)

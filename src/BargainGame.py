@@ -186,7 +186,7 @@ class BargainGame:
                 # Set value of all non-leaders to the bargaining step
                 for player_j in coalition_c.coalition_members:
                     if player_j != leader_p:
-                        root[player_j - 1] = bargain_step
+                        root[player_j - 1] = self.bargain_step
 
                 leader_value = coalition_c_value - sum(root)
                 root[leader_p - 1] = leader_value

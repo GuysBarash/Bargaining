@@ -210,10 +210,10 @@ class BargainGame:
             color_map = []
             for node in self.negotiation_graph:
                 color = 'ORANGE'
-                for cycle in cycles:
+                for cycle in self.cycles:
                     if node in cycle:
                         color = 'RED'
-                if node in end_points:
+                if node in self.end_points:
                     color = 'YELLOW'
                 color_map += [color]
 
@@ -233,10 +233,10 @@ class BargainGame:
             color_map = []
             for node in self.negotiation_graph_nontransient:
                 color = 'ORANGE'
-                for cycle in cycles:
+                for cycle in self.cycles:
                     if node in cycle:
                         color = 'RED'
-                if node in end_points:
+                if node in self.end_points:
                     color = 'YELLOW'
                 color_map += [color]
 

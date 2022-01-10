@@ -13,6 +13,7 @@ from collections import deque
 
 import pandas as pd
 from tqdm import tqdm
+from tabulate import tabulate
 
 IN_COLAB = 'google.colab' in sys.modules
 
@@ -457,3 +458,5 @@ if __name__ == '__main__':
     game.plot_bargaining_graph_non_transient()
 
     histdf = game.random_walk_graph()
+
+    print(tabulate(pd.DataFrame(game.ssdf), headers='keys', tablefmt='psql'))

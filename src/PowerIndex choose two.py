@@ -135,6 +135,9 @@ class BargainGame:
         self.metacoalitions = None
         self.powerIndex = None
 
+        # Additional information
+        self.two_step_bargaining = None
+
     def calculate_shapley(self):
         binary_coalitions = np.array(list(map(list, itertools.product([0, 1], repeat=len(self.players)))))
 
@@ -550,6 +553,7 @@ class BargainGame:
             resdf.loc[k, 'Real value'] = resdf.loc[k, self.players].sum()
         resdf['valid sum'] = resdf['Coalition value'] == resdf['Real value']
 
+        self.two_step_bargaining = resdf[self.players + ['winner', 'Coalition']]
         self.powerIndex['2-step'] = resdf[self.players].mean()
         q = 1
 

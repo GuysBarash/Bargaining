@@ -230,7 +230,7 @@ class BargainGame:
             i, si, j, sj = t
 
             # print(f'Case: ({i}, {si}, {j}, {sj})')
-            if si == '2_3' and sj == '1_2_3':
+            if si == '2_4' and sj == '2_3_4':
                 if i == 2 and j == 3:
                     # DEBUG
                     q = 1
@@ -304,7 +304,7 @@ class BargainGame:
                     pass
                 elif vj_intersection_unit > vi_intersection_unit:
                     # J wins
-                    v_intersection = vi_intersection_unit + v_step
+                    v_intersection = max(vi_intersection_unit, 0) + v_step
                     v_outside = v_step
 
                     v_j = v_sj - (len(intersection) * v_intersection) - (len(sj_only_no_j) * v_outside)
@@ -322,7 +322,7 @@ class BargainGame:
                         pass
                 else:
                     # I wins
-                    v_intersection = vj_intersection_unit
+                    v_intersection = max(vj_intersection_unit, v_step)
                     v_outside = v_step
                     v_i = v_si - (len(intersection) * v_intersection) - (len(si_only_no_i) * v_outside)
                     if v_i > 0:
@@ -458,7 +458,7 @@ class BargainGame:
                 vj_sj_non_j = vj_sj_non_j_unit * len(sj_only_no_j)
                 v_j = v_sj
                 v_j -= v_non_i_intersection + (v_step * (len(intersection) - 1))  # Pay non-i intersection
-                v_j -= (v_i + v_step)  # Pay i
+                v_j -= (max(v_i, v_step) + v_step)  # Pay i
                 v_j -= vj_sj_non_j
 
                 if v_j > 0 and v_i > 0:
@@ -487,7 +487,7 @@ class BargainGame:
                         payoffs[si_member] = v_step
                     payoffs[i] = v_si - tot
 
-                elif v_i <= 0:
+                elif v_i <= 0 and (v_j > 0):
                     # J wins
                     winner += [j]
                     winning_coalition += [sj]
@@ -608,12 +608,12 @@ def str_to_coalition_keys(s):
 if __name__ == '__main__':
     coalitions_value = dict()
 
-    coalitions_value['1'] = 100
-    coalitions_value['1_3'] = 100
-    coalitions_value['2'] = 100
-    coalitions_value['2_3'] = 50
+    coalitions_value['1_2'] = 1000
+    coalitions_value['1_2_4'] = 1000
+    coalitions_value['1_3'] = 1000
+    coalitions_value['1_3_4'] = 1000
 
-    bargain_step = 10
+    bargain_step = 50
     default_coalition_value = 0
 
     game = BargainGame(bargain_step=bargain_step)
@@ -623,3 +623,6 @@ if __name__ == '__main__':
     game.step()
     print("")
     print(game.powerIndex.head(10))
+
+    df = game.two_step_bargaining
+    j = 3

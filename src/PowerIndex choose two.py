@@ -148,7 +148,7 @@ class BargainGame:
         coalitions['sig'] = ''
         for p in self.players:
             coalitions.loc[coalitions[p].eq(1), 'sig'] += f'_{p}'
-        coalitions['sig'] = coalitions['sig'].str.replace('^_', '')
+        coalitions['sig'] = coalitions['sig'].str.replace('^_', '', regex=True)
         coalitions = coalitions.set_index('sig')
 
         coalitions_value = coalitions.copy()
@@ -167,8 +167,8 @@ class BargainGame:
         coalitions_value.loc[coalitions_value['value'].eq(-1), 'value'] = self.default_coalition_value
 
         # Calculate shapley
-        shapley_values = pd.Series(index=self.players)
-        banzhf_values = pd.Series(index=self.players)
+        shapley_values = pd.Series(index=self.players, dtype=np.float64)
+        banzhf_values = pd.Series(index=self.players, dtype=np.float64)
         for c_player in self.players:
             other_parties = [cp for cp in self.players if cp != c_player]
             withdf = coalitions_value[coalitions_value[c_player].eq(1)]
@@ -557,9 +557,58 @@ class BargainGame:
         self.powerIndex['2-step'] = resdf[self.players].mean()
         q = 1
 
-    def step(self):
+    def step(self, k_shap=3):
         self.calculate_2_steps()
         self.calculate_shapley()
+        self.calculate_k_shap(k_shap=k_shap)
+
+    def calculate_k_shap(self, k_shap=3):
+
+        section_build_new_game = True
+        if section_build_new_game:
+            def powerset(s, k):
+                return chain.from_iterable(set(combinations(set(s), r)) for r in range(1, k + 1))
+
+            def partition(collection):
+                if len(collection) == 1:
+                    yield [collection]
+                    return
+
+                first = collection[0]
+                for smaller in partition(collection[1:]):
+                    # insert `first` in each of the subpartition's subsets
+                    for n, subset in enumerate(smaller):
+                        s_set = smaller[:n] + [[first] + subset] + smaller[n + 1:]
+                        yield s_set
+                    # put `first` in its own subset
+                    s_set = [[first]] + smaller
+                    yield s_set
+
+            new_coalition_value = dict()
+            for c, co_value in self.coalitions_value.items():
+                c_players = str_to_coalition_keys(c)
+
+                if len(c_players) <= k_shap:
+                    if co_value > 0:
+                        new_coalition_value[c] = co_value
+                else:
+                    partitions = list(partition(c_players))
+                    partitions_vals = list()
+                    for pl in partitions:
+                        if any([len(p) > k_shap for p in pl]):
+                            continue
+                        pl_str = [coalition_keys_to_str(p) for p in pl]
+                        pl_vals = [self.coalitions_value.get(p, 0) for p in pl_str]
+                        partitions_vals.append(sum(pl_vals))
+                    new_coalition_value[c] = max(partitions_vals)
+
+        section_calculate_k_shap = True
+        if section_calculate_k_shap:
+            kgame = BargainGame(bargain_step=self.bargain_step)
+            kgame.add_coalitions_from_dict(new_coalition_value)
+            kgame.calculate_shapley()
+            self.powerIndex['Kshap'] = kgame.powerIndex['Shapley']
+            del kgame
 
     def _update(self):
         self.players_count = len(
@@ -609,9 +658,10 @@ if __name__ == '__main__':
     coalitions_value = dict()
 
     coalitions_value['1_2'] = 1000
-    coalitions_value['1_2_4'] = 1000
-    coalitions_value['1_3'] = 1000
-    coalitions_value['1_3_4'] = 1000
+    coalitions_value['3_4'] = 1000
+    coalitions_value['2_4_5'] = 1000
+    coalitions_value['2_3_5'] = 1000
+    coalitions_value['1_2_3_4_5'] = 1000
 
     bargain_step = 50
     default_coalition_value = 0
@@ -620,9 +670,8 @@ if __name__ == '__main__':
     game.add_coalitions_from_dict(coalitions_value)
     print(f"Players in game: {game.players_count}")
 
-    game.step()
+    game.step(k_shap=2)
     print("")
     print(game.powerIndex.head(10))
 
     df = game.two_step_bargaining
-    j = 3
